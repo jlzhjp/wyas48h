@@ -1,8 +1,9 @@
 module Parser (doParse, LispVal (..)) where
 
-import Control.Applicative ((<|>))
+import Control.Applicative (asum, (<|>))
+import Data.Functor ((<&>))
 import Numeric (readBin, readHex, readOct)
-import Text.Parsec (ParseError, anyChar, try, unexpected)
+import Text.Parsec (ParseError, anyChar, string, try, unexpected)
 import Text.ParserCombinators.Parsec
   ( Parser,
     char,
@@ -25,6 +26,7 @@ data LispVal
   | DottedList [LispVal] LispVal
   | Number Integer
   | String String
+  | Character Char
   | Bool Bool
   deriving (Show, Eq)
 
@@ -76,6 +78,19 @@ parseHashPrefixedLiteral =
       <|> (char 'b' >> parseNumber Bin)
       <|> (char 'o' >> parseNumber Oct)
       <|> (char 'd' >> parseNumber Dec)
+      <|> (char '\\' >> parseCharLiteral)
+
+parseCharLiteral :: Parser LispVal
+parseCharLiteral = try parseCharName <|> parseChar
+  where
+    parseChar = anyChar <&> Character
+    parseCharName = do
+      charName <- asum $ map string ["space", "newline", "tab"]
+      case charName of
+        "space" -> return $ Character ' '
+        "newline" -> return $ Character '\n'
+        "tab" -> return $ Character '\t'
+        _ -> unexpected "unknown character name"
 
 data NumericalBase = Hex | Dec | Oct | Bin
 

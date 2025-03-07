@@ -66,6 +66,27 @@ parserSpec = do
       it "parses hexadecimal numbers with lowercase letters" $
         doParse "#xa1f" `shouldBe` Right (Number 2591)
 
+    describe "parseCharLiteral" $ do
+      it "parses a simple character" $
+        doParse "#\\a" `shouldBe` Right (Character 'a')
+        
+      it "parses special characters" $
+        doParse "#\\!" `shouldBe` Right (Character '!')
+        
+      it "parses space character" $
+        doParse "#\\space" `shouldBe` Right (Character ' ')
+        
+      it "parses newline character" $
+        doParse "#\\newline" `shouldBe` Right (Character '\n')
+        
+      it "parses tab character" $
+        doParse "#\\tab" `shouldBe` Right (Character '\t')
+        
+      -- it "fails on unknown character name" $
+      --   case doParse "#\\unknown" of
+      --     Left err -> show err `shouldContain` "unknown character name"
+      --     Right val -> expectationFailure $ "expected parse to fail, got " ++ show val
+
     describe "parseList" $ do
       it "parses an empty list" $
         doParse "()" `shouldBe` Right (List [])
