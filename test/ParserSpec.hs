@@ -53,6 +53,18 @@ parserSpec = do
 
       it "parses multiple digits" $
         doParse "123" `shouldBe` Right (Number 123)
+        
+      it "parses binary numbers" $
+        doParse "#b101" `shouldBe` Right (Number 5)
+        
+      it "parses octal numbers" $
+        doParse "#o123" `shouldBe` Right (Number 83)
+        
+      it "parses hexadecimal numbers" $
+        doParse "#xA1F" `shouldBe` Right (Number 2591)
+        
+      it "parses hexadecimal numbers with lowercase letters" $
+        doParse "#xa1f" `shouldBe` Right (Number 2591)
 
     describe "parseList" $ do
       it "parses an empty list" $

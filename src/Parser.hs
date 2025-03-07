@@ -1,7 +1,8 @@
 module Parser (doParse, LispVal (..)) where
 
 import Control.Applicative ((<|>))
-import Text.Parsec (ParseError, try, anyChar, unexpected)
+import Numeric (readBin, readHex, readOct)
+import Text.Parsec (ParseError, anyChar, try, unexpected)
 import Text.ParserCombinators.Parsec
   ( Parser,
     char,
@@ -28,7 +29,7 @@ data LispVal
   deriving (Show, Eq)
 
 symbol :: Parser Char
-symbol = oneOf "!$%&|*+-/:<=>?@^_~#"
+symbol = oneOf "!$%&|*+-/:<=>?@^_~"
 
 spaces :: Parser ()
 spaces = skipMany1 space
@@ -41,7 +42,7 @@ parseString = do
   _ <- char '"'
   return $ String x
   where
-    escaped:: Parser Char
+    escaped :: Parser Char
     escaped = do
       _ <- char '\\'
       c <- anyChar
@@ -58,10 +59,7 @@ parseAtom = do
   first <- letter <|> symbol
   rest <- many (letter <|> digit <|> symbol)
   let atom = first : rest
-  return $ case atom of
-    "#t" -> Bool True
-    "#f" -> Bool False
-    _ -> Atom atom
+  return $ Atom atom
 
 parseDottedList :: Parser LispVal
 parseDottedList = do
@@ -69,11 +67,58 @@ parseDottedList = do
   listTail <- char '.' >> spaces >> parseExpr
   return $ DottedList listHead listTail
 
+parseHashPrefixedLiteral :: Parser LispVal
+parseHashPrefixedLiteral =
+  char '#'
+    >> (char 't' >> return (Bool True))
+      <|> (char 'f' >> return (Bool False))
+      <|> (char 'x' >> parseNumber Hex)
+      <|> (char 'b' >> parseNumber Bin)
+      <|> (char 'o' >> parseNumber Oct)
+      <|> (char 'd' >> parseNumber Dec)
+
+data NumericalBase = Hex | Dec | Oct | Bin
+
 -- exercise 2.1 rewrite parseNumber using: 1. do-notation; 2. >>=
-parseNumber :: Parser LispVal
-parseNumber = do
-  digitStr <- many1 digit
-  return $ Number . read $ digitStr
+-- exercise 2.4 support scheme standard for different bases
+{-
+A number may be written in binary, octal, decimal, or hexadecimal
+by the use of a radix prefix. The radix prefixes are #b (binary),
+#o (octal), #d (decimal), and #x (hexadecimal). With no radix prefix,
+a number is assumed to be expressed in decimal.
+-}
+parseNumber :: NumericalBase -> Parser LispVal
+parseNumber base = case base of
+  Hex -> hexLiteral
+  Dec -> decLiteral
+  Oct -> octLiteral
+  Bin -> binLiteral
+  where
+    decLiteral :: Parser LispVal
+    decLiteral = do
+      number <- many1 digit
+      return $ Number $ read number
+
+    hexLiteral :: Parser LispVal
+    hexLiteral = do
+      number <- many1 (digit <|> oneOf "abcdefABCDEF")
+      return $ case readHex number of
+        [(n, _)] -> Number n
+        _ -> undefined
+
+    octLiteral :: Parser LispVal
+    octLiteral = do
+      number <- many1 (oneOf "01234567")
+      return $ case readOct number of
+        [(n, _)] -> Number n
+        _ -> undefined
+
+    binLiteral :: Parser LispVal
+    binLiteral = do
+      number <- many1 (oneOf "01")
+      return $ case readBin number of
+        [(n, _)] -> Number n
+        _ -> undefined
 
 parseList :: Parser LispVal
 parseList = List <$> sepBy parseExpr spaces
@@ -87,8 +132,9 @@ parseQuoted = do
 parseExpr :: Parser LispVal
 parseExpr =
   parseAtom
+    <|> parseHashPrefixedLiteral
     <|> parseString
-    <|> parseNumber
+    <|> parseNumber Dec
     <|> parseQuoted
     <|> do
       _ <- char '('
