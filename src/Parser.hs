@@ -1,26 +1,22 @@
-module Main (main) where
+module Parser (readExpr) where
 
 import Control.Applicative ((<|>))
-import System.Environment (getArgs)
 import Text.Parsec (try)
-import Text.ParserCombinators.Parsec (Parser, char, digit, endBy, letter, many, many1, noneOf, oneOf, parse, sepBy, skipMany1, space)
-
-main :: IO ()
-main =
-  do
-    args <- getArgs
-    putStrLn $ readExpr $ head args
-
-symbol :: Parser Char
-symbol = oneOf "!$%&|*+-/:<=>?@^_~#"
-
-readExpr :: String -> [Char]
-readExpr input = case parse parseExpr "lisp" input of
-  Left err -> "No match: " ++ show err
-  Right _ -> "Found value"
-
-spaces :: Parser ()
-spaces = skipMany1 space
+import Text.ParserCombinators.Parsec
+  ( Parser,
+    char,
+    digit,
+    endBy,
+    letter,
+    many,
+    many1,
+    noneOf,
+    oneOf,
+    parse,
+    sepBy,
+    skipMany1,
+    space,
+  )
 
 data LispVal
   = Atom String
@@ -29,6 +25,12 @@ data LispVal
   | Number Integer
   | String String
   | Bool Bool
+
+symbol :: Parser Char
+symbol = oneOf "!$%&|*+-/:<=>?@^_~#"
+
+spaces :: Parser ()
+spaces = skipMany1 space
 
 parseString :: Parser LispVal
 parseString =
@@ -78,3 +80,8 @@ parseExpr =
       x <- try parseList <|> parseDottedList
       _ <- char ')'
       return x
+
+readExpr :: String -> [Char]
+readExpr input = case parse parseExpr "lisp" input of
+  Left err -> "No match: " ++ show err
+  Right _ -> "Found value"
