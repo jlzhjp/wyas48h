@@ -1,3 +1,3 @@
-module Lib (readExpr) where
+module Lib (module Parser) where
 
-import Parser (readExpr)
+import Parser

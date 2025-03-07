@@ -1,7 +1,7 @@
-module Parser (readExpr) where
+module Parser (doParse, LispVal (..)) where
 
 import Control.Applicative ((<|>))
-import Text.Parsec (try)
+import Text.Parsec (ParseError, try)
 import Text.ParserCombinators.Parsec
   ( Parser,
     char,
@@ -25,6 +25,7 @@ data LispVal
   | Number Integer
   | String String
   | Bool Bool
+  deriving (Show, Eq)
 
 symbol :: Parser Char
 symbol = oneOf "!$%&|*+-/:<=>?@^_~#"
@@ -81,7 +82,5 @@ parseExpr =
       _ <- char ')'
       return x
 
-readExpr :: String -> [Char]
-readExpr input = case parse parseExpr "lisp" input of
-  Left err -> "No match: " ++ show err
-  Right _ -> "Found value"
+doParse :: String -> Either ParseError LispVal
+doParse = parse parseExpr "lisp"

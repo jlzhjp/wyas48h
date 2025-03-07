@@ -54,12 +54,16 @@ test-suite wyas48h-test
   type:             exitcode-stdio-1.0
   main-is:          Spec.hs
   hs-source-dirs:   test
-  other-modules:    Paths_wyas48h
+  other-modules:
+    ParserSpec
+    Paths_wyas48h
+
   autogen-modules:  Paths_wyas48h
   default-language: Haskell2010
   build-depends:
     , base     >=4.7 && <5
     , hspec
+    , parsec
     , wyas48h
 
   ghc-options:
