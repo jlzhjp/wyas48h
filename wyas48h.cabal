@@ -20,6 +20,7 @@ library
   exposed-modules:  Lib
   hs-source-dirs:   src
   other-modules:
+    Common
     Parser
     Evaluator
     Paths_wyas48h
@@ -28,6 +29,7 @@ library
   default-language: Haskell2010
   build-depends:
     , base    >=4.7 && <5
+    , mtl
     , parsec
 
   ghc-options:
@@ -43,6 +45,7 @@ executable wyas48h-exe
   default-language: Haskell2010
   build-depends:
     , base     >=4.7 && <5
+    , mtl
     , wyas48h
 
   ghc-options:
@@ -66,6 +69,7 @@ test-suite wyas48h-test
     , base     >=4.7 && <5
     , hspec
     , parsec
+    , mtl
     , wyas48h
 
   ghc-options:

@@ -1,12 +1,14 @@
 module Main (main) where
 
-import Lib (LispVal(..), doParse, eval)
+import Lib (eval, doParse)
+import Control.Monad.Except (runExcept)
 import System.Environment (getArgs)
 
-readExpr :: String -> LispVal
-readExpr input = case doParse input of
-  Left err -> String $ "No match: " ++ show err
-  Right val -> val
-
 main :: IO ()
-main = getArgs >>= (print . eval . readExpr . (!! 0))
+main = do
+  args <- getArgs
+  let input = if null args then "()" else head args
+  let result = runExcept (doParse input >>= eval)
+  putStrLn $ case result of
+    Left err -> "Error: " ++ show err
+    Right val -> show val

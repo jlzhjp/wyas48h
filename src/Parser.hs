@@ -1,11 +1,12 @@
-{-# LANGUAGE InstanceSigs #-}
-
 module Parser (doParse, LispVal (..)) where
 
+import Common (LispError (Parser), LispVal (..))
 import Control.Applicative (asum, (<|>))
+import Control.Monad.Except (Except, liftEither)
+import Data.Bifunctor (first)
 import Data.Functor ((<&>))
 import Numeric (readBin, readHex, readOct)
-import Text.Parsec (ParseError, anyChar, string, try, unexpected)
+import Text.Parsec (anyChar, string, try, unexpected)
 import Text.ParserCombinators.Parsec
   ( Parser,
     char,
@@ -21,33 +22,6 @@ import Text.ParserCombinators.Parsec
     skipMany1,
     space,
   )
-
-data LispVal
-  = Atom String
-  | List [LispVal]
-  | DottedList [LispVal] LispVal
-  | Number Integer
-  | String String
-  | Character Char
-  | Bool Bool
-  deriving (Eq)
-
-showVal :: LispVal -> String
-showVal (String contents) = "\"" ++ contents ++ "\""
-showVal (Atom name) = name
-showVal (Number contents) = show contents
-showVal (Bool True) = "#t"
-showVal (Bool False) = "#f"
-showVal (List contents) = "(" ++ unwordsList contents ++ ")"
-showVal (DottedList listHead listTail) = "(" ++ unwordsList listHead ++ " . " ++ showVal listTail ++ ")"
-showVal (Character c) = "#\\" ++ [c]
-
-unwordsList :: [LispVal] -> String
-unwordsList = unwords . map showVal
-
-instance Show LispVal where
-  show :: LispVal -> String
-  show = showVal
 
 symbol :: Parser Char
 symbol = oneOf "!$%&|*+-/:<=>?@^_~"
@@ -77,9 +51,9 @@ parseString = do
 
 parseAtom :: Parser LispVal
 parseAtom = do
-  first <- letter <|> symbol
-  rest <- many (letter <|> digit <|> symbol)
-  let atom = first : rest
+  identifierStart <- letter <|> symbol
+  identifierRest <- many (letter <|> digit <|> symbol)
+  let atom = identifierStart : identifierRest
   return $ Atom atom
 
 parseDottedList :: Parser LispVal
@@ -176,5 +150,5 @@ parseExpr =
       _ <- char ')'
       return x
 
-doParse :: String -> Either ParseError LispVal
-doParse = parse parseExpr "lisp"
+doParse :: String -> Except LispError LispVal
+doParse input = liftEither $ first Parser $ parse parseExpr "lisp" input

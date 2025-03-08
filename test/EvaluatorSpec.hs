@@ -1,95 +1,74 @@
-module EvaluatorSpec(evaluatorSpec) where
+module EvaluatorSpec (evaluatorSpec) where
 
+import Control.Monad.Except (runExcept)
 import Lib (LispVal (..), doParse, eval)
 import Test.Hspec
-  ( Spec,
+  ( Expectation,
+    Spec,
     describe,
     expectationFailure,
     it,
     shouldBe,
   )
 
+-- Helper function for evaluating expressions in tests
+shouldEvalTo :: String -> LispVal -> Expectation
+shouldEvalTo exprStr expected = do
+  case runExcept (doParse exprStr >>= eval) of
+    Right result -> result `shouldBe` expected
+    Left err -> expectationFailure $ show err
+
 evaluatorSpec :: Spec
 evaluatorSpec = do
   describe "Mathematical operations" $ do
     describe "Addition" $ do
-      it "adds two numbers" $ do
-        case doParse "(+ 1 2)" of
-          Right expr -> eval expr `shouldBe` Number 3
-          Left err -> expectationFailure $ show err
+      it "adds two numbers" $
+        "(+ 1 2)" `shouldEvalTo` Number 3
 
-      it "adds multiple numbers" $ do
-        case doParse "(+ 1 2 3)" of
-          Right expr -> eval expr `shouldBe` Number 6
-          Left err -> expectationFailure $ show err
+      it "adds multiple numbers" $
+        "(+ 1 2 3)" `shouldEvalTo` Number 6
 
-      it "handles negative numbers" $ do
-        case doParse "(+ -1 5)" of
-          Right expr -> eval expr `shouldBe` Number 4
-          Left err -> expectationFailure $ show err
+      it "handles negative numbers" $
+        "(+ -1 5)" `shouldEvalTo` Number 4
 
     describe "Subtraction" $ do
-      it "subtracts two numbers" $ do
-        case doParse "(- 5 3)" of
-          Right expr -> eval expr `shouldBe` Number 2
-          Left err -> expectationFailure $ show err
+      it "subtracts two numbers" $
+        "(- 5 3)" `shouldEvalTo` Number 2
 
-      it "subtracts multiple numbers" $ do
-        case doParse "(- 10 2 3)" of
-          Right expr -> eval expr `shouldBe` Number 5
-          Left err -> expectationFailure $ show err
+      it "subtracts multiple numbers" $
+        "(- 10 2 3)" `shouldEvalTo` Number 5
 
-      it "handles negative numbers" $ do
-        case doParse "(- 5 8)" of
-          Right expr -> eval expr `shouldBe` Number (-3)
-          Left err -> expectationFailure $ show err
+      it "handles negative numbers" $
+        "(- 5 8)" `shouldEvalTo` Number (-3)
 
     describe "Multiplication" $ do
-      it "multiplies two numbers" $ do
-        case doParse "(* 2 3)" of
-          Right expr -> eval expr `shouldBe` Number 6
-          Left err -> expectationFailure $ show err
+      it "multiplies two numbers" $
+        "(* 2 3)" `shouldEvalTo` Number 6
 
-      it "multiplies multiple numbers" $ do
-        case doParse "(* 2 3 4)" of
-          Right expr -> eval expr `shouldBe` Number 24
-          Left err -> expectationFailure $ show err
+      it "multiplies multiple numbers" $
+        "(* 2 3 4)" `shouldEvalTo` Number 24
 
-      it "handles negative numbers" $ do
-        case doParse "(* -2 3)" of
-          Right expr -> eval expr `shouldBe` Number (-6)
-          Left err -> expectationFailure $ show err
+      it "handles negative numbers" $
+        "(* -2 3)" `shouldEvalTo` Number (-6)
 
     describe "Division" $ do
-      it "divides two numbers" $ do
-        case doParse "(/ 6 3)" of
-          Right expr -> eval expr `shouldBe` Number 2
-          Left err -> expectationFailure $ show err
+      it "divides two numbers" $
+        "(/ 6 3)" `shouldEvalTo` Number 2
 
-      it "performs integer division" $ do
-        case doParse "(/ 7 2)" of
-          Right expr -> eval expr `shouldBe` Number 3
-          Left err -> expectationFailure $ show err
+      it "performs integer division" $
+        "(/ 7 2)" `shouldEvalTo` Number 3
 
     describe "Modulo" $ do
-      it "calculates modulo" $ do
-        case doParse "(mod 7 3)" of
-          Right expr -> eval expr `shouldBe` Number 1
-          Left err -> expectationFailure $ show err
+      it "calculates modulo" $
+        "(mod 7 3)" `shouldEvalTo` Number 1
 
     describe "Quotient" $ do
-      it "calculates quotient" $ do
-        case doParse "(quotient 7 3)" of
-          Right expr -> eval expr `shouldBe` Number 2
-          Left err -> expectationFailure $ show err
+      it "calculates quotient" $
+        "(quotient 7 3)" `shouldEvalTo` Number 2
 
     describe "Remainder" $ do
-      it "calculates remainder" $ do
-        case doParse "(remainder 7 3)" of
-          Right expr -> eval expr `shouldBe` Number 1
-          Left err -> expectationFailure $ show err
+      it "calculates remainder" $
+        "(remainder 7 3)" `shouldEvalTo` Number 1
 
-      it "handles negative dividend" $ do
-        case doParse "(remainder -7 3)" of
-          Right expr -> eval expr `shouldBe` Number (-1)
-          Left err -> expectationFailure $ show err
+      it "handles negative dividend" $
+        "(remainder -7 3)" `shouldEvalTo` Number (-1)
