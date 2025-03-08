@@ -6,9 +6,8 @@ import System.Environment (getArgs)
 
 main :: IO ()
 main = do
-  args <- getArgs
-  let input = if null args then "()" else head args
-  let result = runExcept (doParse input >>= eval)
-  putStrLn $ case result of
-    Left err -> "Error: " ++ show err
-    Right val -> show val
+  input <- parseArgs <$> getArgs
+  putStrLn $ formatResult $ runExcept (doParse input >>= eval)
+  where
+    parseArgs args = if null args then "()" else head args
+    formatResult = either (\err -> "Error: " ++ show err) show
