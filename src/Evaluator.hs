@@ -2,18 +2,19 @@ module Evaluator (eval) where
 
 import Common (LispError (..), LispVal (..))
 import Control.Monad.Except (Except, throwError)
-import Data.Functor ((<&>))
 
 eval :: LispVal -> Except LispError LispVal
 eval val@(String _) = return val
 eval val@(Number _) = return val
 eval val@(Bool _) = return val
 eval (List [Atom "quote", val]) = return val
-eval (List (Atom func : args)) = mapM eval args >>= apply func
+eval (List (Atom func : args)) = apply func =<< mapM eval args
 eval badForm = throwError $ BadSpecialForm "Unrecognized special form" badForm
 
 apply :: String -> [LispVal] -> Except LispError LispVal
-apply func args = maybe (throwError $ NotFunction "Unrecognized primitive function args" func) ($ args) $ lookup func primitives
+apply func args = case lookup func primitives of
+  Just primFunc -> primFunc args
+  Nothing -> throwError $ NotFunction "Unrecognized primitive function args" func
 
 primitives :: [(String, [LispVal] -> Except LispError LispVal)]
 primitives =
@@ -27,7 +28,7 @@ primitives =
   ]
 
 numericBinop :: (Integer -> Integer -> Integer) -> [LispVal] -> Except LispError LispVal
-numericBinop op params = mapM unpackNum params <&> (Number . foldl1 op)
+numericBinop op params = Number . foldl1 op <$> mapM unpackNum params
 
 unpackNum :: LispVal -> Except LispError Integer
 unpackNum (Number n) = return n

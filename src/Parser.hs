@@ -1,12 +1,13 @@
+{-# LANGUAGE LambdaCase #-}
+
 module Parser (doParse, LispVal (..)) where
 
 import Common (LispError (Parser), LispVal (..))
 import Control.Applicative (asum, (<|>))
 import Control.Monad.Except (Except, liftEither)
 import Data.Bifunctor (first)
-import Data.Functor ((<&>))
 import Numeric (readBin, readHex, readOct)
-import Text.Parsec (anyChar, string, try, unexpected)
+import Text.Parsec (anyChar, string, try, unexpected, between)
 import Text.ParserCombinators.Parsec
   ( Parser,
     char,
@@ -31,59 +32,43 @@ spaces = skipMany1 space
 
 -- exercise 2.2, 2.3: handle escaped characters in strings
 parseString :: Parser LispVal
-parseString = do
-  _ <- char '"'
-  x <- many (escaped <|> noneOf "\"")
-  _ <- char '"'
-  return $ String x
+parseString = String <$> between (char '"') (char '"') (many (escaped <|> noneOf "\""))
   where
     escaped :: Parser Char
-    escaped = do
-      _ <- char '\\'
-      c <- anyChar
-      case c of
-        '"' -> return '"'
-        't' -> return '\t'
-        'n' -> return '\n'
-        'r' -> return '\r'
-        '\\' -> return '\\'
-        _ -> unexpected $ "escape sequence \\" ++ [c]
+    escaped = char '\\' *> anyChar >>= \c -> case c of
+      '"'  -> return '"'
+      't'  -> return '\t'
+      'n'  -> return '\n'
+      'r'  -> return '\r'
+      '\\' -> return '\\'
+      _    -> unexpected $ "escape sequence \\" ++ [c]
 
 parseAtom :: Parser LispVal
-parseAtom = do
-  identifierStart <- letter <|> symbol
-  identifierRest <- many (letter <|> digit <|> symbol)
-  let atom = identifierStart : identifierRest
-  return $ Atom atom
+parseAtom = Atom <$> ((:) <$> (letter <|> symbol) <*> many (letter <|> digit <|> symbol))
 
 parseDottedList :: Parser LispVal
-parseDottedList = do
-  listHead <- endBy parseExpr spaces
-  listTail <- char '.' >> spaces >> parseExpr
-  return $ DottedList listHead listTail
+parseDottedList = DottedList <$> endBy parseExpr spaces <*> (char '.' *> spaces *> parseExpr)
 
 parseHashPrefixedLiteral :: Parser LispVal
-parseHashPrefixedLiteral =
-  char '#'
-    >> (char 't' >> return (Bool True))
-      <|> (char 'f' >> return (Bool False))
-      <|> (char 'x' >> parseNumber Hex)
-      <|> (char 'b' >> parseNumber Bin)
-      <|> (char 'o' >> parseNumber Oct)
-      <|> (char 'd' >> parseNumber Dec)
-      <|> (char '\\' >> parseCharLiteral)
+parseHashPrefixedLiteral = char '#' *> asum
+  [ Bool True  <$ char 't'
+  , Bool False <$ char 'f'
+  , char 'x' *> parseNumber Hex
+  , char 'b' *> parseNumber Bin
+  , char 'o' *> parseNumber Oct
+  , char 'd' *> parseNumber Dec
+  , char '\\' *> parseCharLiteral
+  ]
 
 parseCharLiteral :: Parser LispVal
-parseCharLiteral = try parseCharName <|> parseChar
+parseCharLiteral = try parseCharName <|> (Character <$> anyChar)
   where
-    parseChar = anyChar <&> Character
+    charMap = [("space", ' '), ("newline", '\n'), ("tab", '\t')]
     parseCharName = do
-      charName <- asum $ map string ["space", "newline", "tab"]
-      case charName of
-        "space" -> return $ Character ' '
-        "newline" -> return $ Character '\n'
-        "tab" -> return $ Character '\t'
-        _ -> unexpected "unknown character name"
+      name <- asum $ map (string . fst) charMap
+      case lookup name charMap of
+        Just c  -> return $ Character c
+        Nothing -> unexpected "unknown character name"
 
 data NumericalBase = Hex | Dec | Oct | Bin
 
@@ -96,59 +81,33 @@ by the use of a radix prefix. The radix prefixes are #b (binary),
 a number is assumed to be expressed in decimal.
 -}
 parseNumber :: NumericalBase -> Parser LispVal
-parseNumber base = case base of
-  Hex -> hexLiteral
-  Dec -> decLiteral
-  Oct -> octLiteral
-  Bin -> binLiteral
+parseNumber = \case
+  Hex -> readWith readHex (digit <|> oneOf "abcdefABCDEF")
+  Dec -> Number . read <$> many1 digit
+  Oct -> readWith readOct (oneOf "01234567")
+  Bin -> readWith readBin (oneOf "01")
   where
-    decLiteral :: Parser LispVal
-    decLiteral = do
-      number <- many1 digit
-      return $ Number $ read number
-
-    hexLiteral :: Parser LispVal
-    hexLiteral = do
-      number <- many1 (digit <|> oneOf "abcdefABCDEF")
-      return $ case readHex number of
-        [(n, _)] -> Number n
-        _ -> undefined
-
-    octLiteral :: Parser LispVal
-    octLiteral = do
-      number <- many1 (oneOf "01234567")
-      return $ case readOct number of
-        [(n, _)] -> Number n
-        _ -> undefined
-
-    binLiteral :: Parser LispVal
-    binLiteral = do
-      number <- many1 (oneOf "01")
-      return $ case readBin number of
-        [(n, _)] -> Number n
-        _ -> undefined
+    readWith reader chars = do
+      number <- many1 chars
+      case reader number of
+        [(n, _)] -> return $ Number n
+        _        -> unexpected "invalid number format"
 
 parseList :: Parser LispVal
 parseList = List <$> sepBy parseExpr spaces
 
 parseQuoted :: Parser LispVal
-parseQuoted = do
-  _ <- char '\''
-  x <- parseExpr
-  return $ List [Atom "quote", x]
+parseQuoted = char '\'' *> (List . (Atom "quote" :) . return <$> parseExpr)
 
 parseExpr :: Parser LispVal
-parseExpr =
-  parseAtom
-    <|> parseHashPrefixedLiteral
-    <|> parseString
-    <|> parseNumber Dec
-    <|> parseQuoted
-    <|> do
-      _ <- char '('
-      x <- try parseList <|> parseDottedList
-      _ <- char ')'
-      return x
+parseExpr = asum
+  [ parseAtom
+  , parseHashPrefixedLiteral
+  , parseString
+  , parseNumber Dec
+  , parseQuoted
+  , between (char '(') (char ')') (try parseList <|> parseDottedList)
+  ]
 
 doParse :: String -> Except LispError LispVal
-doParse input = liftEither $ first Parser $ parse parseExpr "lisp" input
+doParse = liftEither . first Parser . parse parseExpr "lisp"
