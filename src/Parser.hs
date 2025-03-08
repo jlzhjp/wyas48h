@@ -1,3 +1,5 @@
+{-# LANGUAGE InstanceSigs #-}
+
 module Parser (doParse, LispVal (..)) where
 
 import Control.Applicative (asum, (<|>))
@@ -28,7 +30,24 @@ data LispVal
   | String String
   | Character Char
   | Bool Bool
-  deriving (Show, Eq)
+  deriving (Eq)
+
+showVal :: LispVal -> String
+showVal (String contents) = "\"" ++ contents ++ "\""
+showVal (Atom name) = name
+showVal (Number contents) = show contents
+showVal (Bool True) = "#t"
+showVal (Bool False) = "#f"
+showVal (List contents) = "(" ++ unwordsList contents ++ ")"
+showVal (DottedList listHead listTail) = "(" ++ unwordsList listHead ++ " . " ++ showVal listTail ++ ")"
+showVal (Character c) = "#\\" ++ [c]
+
+unwordsList :: [LispVal] -> String
+unwordsList = unwords . map showVal
+
+instance Show LispVal where
+  show :: LispVal -> String
+  show = showVal
 
 symbol :: Parser Char
 symbol = oneOf "!$%&|*+-/:<=>?@^_~"

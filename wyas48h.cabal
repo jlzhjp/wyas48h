@@ -21,6 +21,7 @@ library
   hs-source-dirs:   src
   other-modules:
     Parser
+    Evaluator
     Paths_wyas48h
 
   autogen-modules:  Paths_wyas48h
@@ -56,6 +57,7 @@ test-suite wyas48h-test
   hs-source-dirs:   test
   other-modules:
     ParserSpec
+    EvaluatorSpec
     Paths_wyas48h
 
   autogen-modules:  Paths_wyas48h
