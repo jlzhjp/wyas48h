@@ -102,6 +102,15 @@ parseList = List <$> sepBy parseExpr spaces
 parseQuoted :: Parser LispVal
 parseQuoted = char '\'' *> (List . (Atom "quote" :) . return <$> parseExpr)
 
+parseBackquoted :: Parser LispVal
+parseBackquoted = char '`' *> (List . (Atom "quasiquote" :) . return <$> parseExpr)
+
+parseUnquoted :: Parser LispVal
+parseUnquoted = char ',' *> (List . (Atom "unquote" :) . return <$> parseExpr)
+
+parseUnquotedSpliced :: Parser LispVal
+parseUnquotedSpliced = string ",@" *> (List . (Atom "unquote-splicing" :) . return <$> parseExpr)
+
 parseExpr :: Parser LispVal
 parseExpr =
   asum
@@ -110,6 +119,9 @@ parseExpr =
       parseString,
       parseNumber Dec,
       parseQuoted,
+      try parseUnquotedSpliced,
+      parseUnquoted,
+      parseBackquoted,
       between (char '(') (char ')') (try parseList <|> parseDottedList)
     ]
 

@@ -152,6 +152,34 @@ parserSpec = do
       it "parses a quoted list" $
         "'(a b c)" `shouldParseTo` List [Atom "quote", List [Atom "a", Atom "b", Atom "c"]]
 
+    describe "parseBackquoted" $ do
+      it "parses a basic quasiquoted atom" $
+        "`a" `shouldParseTo` List [Atom "quasiquote", Atom "a"]
+
+      it "parses a quasiquoted list" $
+        "`(a b c)" `shouldParseTo` List [Atom "quasiquote", List [Atom "a", Atom "b", Atom "c"]]
+
+      it "parses an unquoted expression within quasiquote" $
+        "`(a ,b c)" `shouldParseTo` 
+          List [Atom "quasiquote", 
+            List [Atom "a", 
+              List [Atom "unquote", Atom "b"], 
+              Atom "c"]]
+
+      it "parses an unquote-spliced expression within quasiquote" $
+        "`(a ,@b c)" `shouldParseTo` 
+          List [Atom "quasiquote", 
+            List [Atom "a", 
+              List [Atom "unquote-splicing", Atom "b"], 
+              Atom "c"]]
+              
+      it "parses multiple unquoted expressions" $
+        "`(a ,b ,c)" `shouldParseTo` 
+          List [Atom "quasiquote", 
+            List [Atom "a", 
+              List [Atom "unquote", Atom "b"],
+              List [Atom "unquote", Atom "c"]]]
+
     describe "complex expressions" $ do
       it "parses a complex expression" $
         runExcept (doParse "(define (factorial n) (if (= n 0) 1 (* n (factorial (- n 1)))))")

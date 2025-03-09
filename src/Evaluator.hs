@@ -1,7 +1,9 @@
+{-# LANGUAGE ExistentialQuantification #-}
+
 module Evaluator (eval) where
 
 import Common (LispError (..), LispVal (..))
-import Control.Monad.Except (Except, throwError)
+import Control.Monad.Except (Except, catchError, throwError)
 
 eval :: LispVal -> Except LispError LispVal
 eval val@(String _) = return val
@@ -45,7 +47,8 @@ primitives =
     ("car", car),
     ("cdr", cdr),
     ("cons", cons),
-    ("eqv?", eqv)
+    ("eqv?", eqv),
+    ("equal?", equal)
   ]
 
 numericBinop :: (Integer -> Integer -> Integer) -> [LispVal] -> Except LispError LispVal
@@ -128,3 +131,20 @@ eqv [List arg1, List arg2]
     isBoolTrue _ = False
 eqv [_, _] = return $ Bool False
 eqv badArgList = throwError $ NumArgs 2 badArgList
+
+data Unpacker = forall a. (Eq a) => AnyUnpacker (LispVal -> Except LispError a)
+
+unpackEquals :: LispVal -> LispVal -> Unpacker -> Except LispError Bool
+unpackEquals arg1 arg2 (AnyUnpacker unpacker) =
+  catchError
+    ((==) <$> unpacker arg1 <*> unpacker arg2)
+    (const $ return False) -- const: ignore the second argument
+
+equal :: [LispVal] -> Except LispError LispVal
+equal [arg1, arg2] = do
+  primitiveEquals <- or <$> mapM (unpackEquals arg1 arg2) unpackers
+  eqvEquals <- eqv [arg1, arg2]
+  return $ Bool (primitiveEquals || eqvEquals == Bool True)
+  where
+    unpackers = [AnyUnpacker unpackNum, AnyUnpacker unpackStr, AnyUnpacker unpackBool]
+equal badArgList = throwError $ NumArgs 2 badArgList
