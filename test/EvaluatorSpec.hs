@@ -89,10 +89,30 @@ evaluatorSpec = do
       it "handles negative dividend" $
         "(remainder -7 3)" `shouldEvalTo` Number (-1)
 
+  describe "Special forms" $ do
+    describe "if expressions" $ do
+      it "evaluates true condition" $
+        "(if #t 1 2)" `shouldEvalTo` Number 1
+        
+      it "evaluates false condition" $
+        "(if #f 1 2)" `shouldEvalTo` Number 2
+        
+      it "evaluates condition expression" $
+        "(if (> 2 1) \"yes\" \"no\")" `shouldEvalTo` String "yes"
+        
+      it "evaluates nested if expressions - true branch" $
+        "(if #t (if #t 1 2) 3)" `shouldEvalTo` Number 1
+        
+      it "evaluates nested if expressions - false branch" $
+        "(if #f 1 (if #t 2 3))" `shouldEvalTo` Number 2
+      
+      it "throws error with wrong number of arguments" $
+        "(if #t)" `shouldFailWith` BadSpecialForm "Unrecognized special form" (List [Atom "if", Bool True])
+
   describe "Error conditions" $ do
     describe "Unrecognized special form" $ do
       it "throws error for unknown form" $
-        "(unknown-form 1 2)" `shouldFailWith` NotFunction "Unrecognized primitive function args" "unknown-form"
+        "(unknown-form 1 2)" `shouldFailWith` NotFunction "Unrecognized primitive function" "unknown-form"
 
     describe "Numeric operations errors" $ do
       it "throws error when adding non-numbers" $
@@ -123,3 +143,83 @@ evaluatorSpec = do
         "(cdr 1 2)" `shouldThrowError` \case
           NumArgs 1 _ -> True
           _ -> False
+
+  describe "List operations" $ do
+    describe "car" $ do
+      it "gets the first element of a list" $
+        "(car '(1 2 3))" `shouldEvalTo` Number 1
+        
+      it "gets the first element of a dotted list" $
+        "(car '(1 2 . 3))" `shouldEvalTo` Number 1
+        
+      it "works with nested lists" $
+        "(car '((1 2) 3 4))" `shouldEvalTo` List [Number 1, Number 2]
+        
+    describe "cdr" $ do
+      it "gets the rest of a list" $
+        "(cdr '(1 2 3))" `shouldEvalTo` List [Number 2, Number 3]
+        
+      it "gets the rest of a dotted list" $
+        "(cdr '(1 2 . 3))" `shouldEvalTo` DottedList [Number 2] (Number 3)
+        
+      it "returns empty list for singleton list" $
+        "(cdr '(1))" `shouldEvalTo` List []
+        
+      it "returns the tail for singleton dotted list" $
+        "(cdr '(1 . 2))" `shouldEvalTo` Number 2
+        
+    describe "cons" $ do
+      it "adds an element to the beginning of a list" $
+        "(cons 1 '(2 3))" `shouldEvalTo` List [Number 1, Number 2, Number 3]
+        
+      it "creates a new singleton list when given empty list" $
+        "(cons 1 '())" `shouldEvalTo` List [Number 1]
+        
+      it "creates a dotted list with non-list second argument" $
+        "(cons 1 2)" `shouldEvalTo` DottedList [Number 1] (Number 2)
+        
+      it "preserves dotted list structure" $
+        "(cons 1 '(2 . 3))" `shouldEvalTo` DottedList [Number 1, Number 2] (Number 3)
+        
+      it "throws error with wrong number of arguments" $
+        "(cons 1)" `shouldFailWith` NumArgs 2 [Number 1]
+        
+    describe "eqv?" $ do
+      it "compares equal numbers" $
+        "(eqv? 1 1)" `shouldEvalTo` Bool True
+        
+      it "compares unequal numbers" $
+        "(eqv? 1 2)" `shouldEvalTo` Bool False
+        
+      it "compares equal booleans" $
+        "(eqv? #t #t)" `shouldEvalTo` Bool True
+        
+      it "compares unequal booleans" $
+        "(eqv? #t #f)" `shouldEvalTo` Bool False
+        
+      it "compares equal strings" $
+        "(eqv? \"hello\" \"hello\")" `shouldEvalTo` Bool True
+        
+      it "compares unequal strings" $
+        "(eqv? \"hello\" \"world\")" `shouldEvalTo` Bool False
+        
+      it "compares equal atoms" $
+        "(eqv? 'abc 'abc)" `shouldEvalTo` Bool True
+        
+      it "compares equal lists" $
+        "(eqv? '(1 2 3) '(1 2 3))" `shouldEvalTo` Bool True
+        
+      it "compares unequal lists" $
+        "(eqv? '(1 2) '(1 3))" `shouldEvalTo` Bool False
+        
+      it "compares lists of different lengths" $
+        "(eqv? '(1 2) '(1 2 3))" `shouldEvalTo` Bool False
+        
+      it "compares dotted lists" $
+        "(eqv? '(1 2 . 3) '(1 2 . 3))" `shouldEvalTo` Bool True
+        
+      it "returns false for different types" $
+        "(eqv? 1 \"1\")" `shouldEvalTo` Bool False
+        
+      it "throws error with wrong number of arguments" $
+        "(eqv? 1 2 3)" `shouldFailWith` NumArgs 2 [Number 1, Number 2, Number 3]

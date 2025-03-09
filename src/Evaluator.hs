@@ -8,13 +8,18 @@ eval val@(String _) = return val
 eval val@(Number _) = return val
 eval val@(Bool _) = return val
 eval (List [Atom "quote", val]) = return val
+eval (List [Atom "if", ifPred, conseq, alt]) = do
+  result <- eval ifPred
+  case result of
+    Bool False -> eval alt
+    _ -> eval conseq
 eval (List (Atom func : args)) = apply func =<< mapM eval args
 eval badForm = throwError $ BadSpecialForm "Unrecognized special form" badForm
 
 apply :: String -> [LispVal] -> Except LispError LispVal
 apply func args = case lookup func primitives of
   Just primFunc -> primFunc args
-  Nothing -> throwError $ NotFunction "Unrecognized primitive function args" func
+  Nothing -> throwError $ NotFunction "Unrecognized primitive function" func
 
 primitives :: [(String, [LispVal] -> Except LispError LispVal)]
 primitives =
@@ -33,10 +38,14 @@ primitives =
     ("<=", numBoolBinop (<=)),
     ("&&", boolBoolBinop (&&)),
     ("||", boolBoolBinop (||)),
-    ("string=?", strBoolBinop(==)),
+    ("string=?", strBoolBinop (==)),
     ("string>?", strBoolBinop (>)),
     ("string<=?", strBoolBinop (<)),
-    ("string>=?", strBoolBinop (>=))
+    ("string>=?", strBoolBinop (>=)),
+    ("car", car),
+    ("cdr", cdr),
+    ("cons", cons),
+    ("eqv?", eqv)
   ]
 
 numericBinop :: (Integer -> Integer -> Integer) -> [LispVal] -> Except LispError LispVal
@@ -82,13 +91,40 @@ unpackBool notBool = throwError $ TypeMismatch "boolean" notBool
 
 car :: [LispVal] -> Except LispError LispVal
 car [List (x : _)] = return x
-car [DottedList (x: _) _] = return x
+car [DottedList (x : _) _] = return x
 car [badArg] = throwError $ TypeMismatch "pair" badArg
 car badArgList = throwError $ NumArgs 1 badArgList
 
 cdr :: [LispVal] -> Except LispError LispVal
-cdr [List (_: xs)] = return $ List xs
+cdr [List (_ : xs)] = return $ List xs
+cdr [DottedList [_] x] = return x
 cdr [DottedList (_ : xs) x] = return $ DottedList xs x
-cdr [DottedList [xs] x] = return x
 cdr [badArg] = throwError $ TypeMismatch "pair" badArg
 cdr badArgList = throwError $ NumArgs 1 badArgList
+
+cons :: [LispVal] -> Except LispError LispVal
+cons [x1, List []] = return $ List [x1]
+cons [x, List xs] = return $ List $ x : xs
+-- if the list is a [DottedList], then it should stay a [DottedList],
+-- taking into account the improper tail
+cons [x, DottedList xs xlast] = return $ DottedList (x : xs) xlast
+-- if you cons together two non-lists, or put a list in front, you get a [DottedList]
+cons [x1, x2] = return $ DottedList [x1] x2
+cons badArgList = throwError $ NumArgs 2 badArgList
+
+eqv :: [LispVal] -> Except LispError LispVal
+eqv [Bool arg1, Bool arg2] = return $ Bool $ arg1 == arg2
+eqv [Number arg1, Number arg2] = return $ Bool $ arg1 == arg2
+eqv [String arg1, String arg2] = return $ Bool $ arg1 == arg2
+eqv [Atom arg1, Atom arg2] = return $ Bool $ arg1 == arg2
+eqv [DottedList xs x, DottedList ys y] = eqv [List $ xs ++ [x], List $ ys ++ [y]]
+eqv [List arg1, List arg2]
+  | length arg1 /= length arg2 = return $ Bool False
+  | otherwise = do
+      results <- mapM (\(x, y) -> eqv [x, y]) (zip arg1 arg2)
+      return $ Bool $ all isBoolTrue results
+  where
+    isBoolTrue (Bool True) = True
+    isBoolTrue _ = False
+eqv [_, _] = return $ Bool False
+eqv badArgList = throwError $ NumArgs 2 badArgList
