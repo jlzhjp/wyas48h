@@ -59,6 +59,7 @@ test-suite wyas48h-test
   main-is:          Spec.hs
   hs-source-dirs:   test
   other-modules:
+    CommonSpec
     ParserSpec
     EvaluatorSpec
     Paths_wyas48h

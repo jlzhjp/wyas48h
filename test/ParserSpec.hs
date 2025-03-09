@@ -58,6 +58,9 @@ parserSpec = do
 
       it "fails when string contains unknown escape sequence" $
         "\"bad\\zescape\"" `shouldFailWithError` "escape sequence \\z"
+        
+      it "fails on unterminated string" $
+        "\"unterminated" `shouldFailWithError` "unexpected end of input"
 
     describe "parseNumber" $ do
       it "parses a single digit" $
@@ -77,6 +80,15 @@ parserSpec = do
 
       it "parses hexadecimal numbers with lowercase letters" $
         "#xa1f" `shouldParseTo` Number 2591
+        
+      it "fails on invalid binary number" $
+        "#b102" `shouldFailWithError` "invalid number format"
+        
+      it "fails on invalid octal number" $
+        "#o829" `shouldFailWithError` "invalid number format"
+        
+      it "fails on invalid hexadecimal number" $
+        "#xZ12" `shouldFailWithError` "invalid number format"
 
     describe "parseCharLiteral" $ do
       it "parses a simple character" $
@@ -94,8 +106,8 @@ parserSpec = do
       it "parses tab character" $
         "#\\tab" `shouldParseTo` Character '\t'
 
-    -- it "fails on unknown character name" $
-    --   "#\\unknown" `shouldFailWithError` "unknown character name"
+      it "fails on unknown character name" $
+        "#\\unknown" `shouldFailWithError` "unknown character name"
 
     describe "parseList" $ do
       it "parses an empty list" $
@@ -116,6 +128,22 @@ parserSpec = do
 
       it "parses a dotted list with multiple head elements" $
         "(a b c . d)" `shouldParseTo` DottedList [Atom "a", Atom "b", Atom "c"] (Atom "d")
+        
+      it "fails on incomplete dotted list" $
+        "(a . )" `shouldFailWithError` "unexpected"
+        
+      it "fails when dot is first element" $
+        "(. a)" `shouldFailWithError` "unexpected"
+
+    describe "general syntax errors" $ do
+      it "fails on unbalanced opening parenthesis" $
+        "(a b c" `shouldFailWithError` "unexpected end of input"
+        
+      it "fails on unbalanced closing parenthesis" $
+        "a b c)" `shouldFailWithError` "unexpected"
+        
+      it "fails on empty input" $
+        "" `shouldFailWithError` "unexpected end of input"
 
     describe "parseQuoted" $ do
       it "parses a quoted atom" $
@@ -146,60 +174,3 @@ parserSpec = do
                     ]
                 ]
             )
-
-    describe "Show instance for LispVal" $ do
-      it "shows an atom" $
-        show (Atom "abc") `shouldBe` "abc"
-
-      it "shows a number" $
-        show (Number 123) `shouldBe` "123"
-
-      it "shows a string" $
-        show (String "hello world") `shouldBe` "\"hello world\""
-
-      it "shows a boolean true" $
-        show (Bool True) `shouldBe` "#t"
-
-      it "shows a boolean false" $
-        show (Bool False) `shouldBe` "#f"
-
-      it "shows a character" $
-        show (Character 'a') `shouldBe` "#\\a"
-
-      it "shows special characters" $ do
-        show (Character ' ') `shouldBe` "#\\ "
-        show (Character '\n') `shouldBe` "#\\\n"
-
-      it "shows an empty list" $
-        show (List []) `shouldBe` "()"
-
-      it "shows a simple list" $
-        show (List [Atom "a", Atom "b", Atom "c"]) `shouldBe` "(a b c)"
-
-      it "shows a nested list" $
-        show (List [Atom "a", List [Atom "b", Atom "c"]]) `shouldBe` "(a (b c))"
-
-      it "shows a dotted list" $
-        show (DottedList [Atom "a", Atom "b"] (Atom "c")) `shouldBe` "(a b . c)"
-
-      it "shows a complex expression" $
-        show
-          ( List
-              [ Atom "define",
-                List [Atom "factorial", Atom "n"],
-                List
-                  [ Atom "if",
-                    List [Atom "=", Atom "n", Number 0],
-                    Number 1,
-                    List
-                      [ Atom "*",
-                        Atom "n",
-                        List
-                          [ Atom "factorial",
-                            List [Atom "-", Atom "n", Number 1]
-                          ]
-                      ]
-                  ]
-              ]
-          )
-          `shouldBe` "(define (factorial n) (if (= n 0) 1 (* n (factorial (- n 1)))))"

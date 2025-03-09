@@ -1,59 +1,77 @@
 {-# LANGUAGE InstanceSigs #-}
+{-# LANGUAGE LambdaCase #-}
 
-module Common (LispVal (..), LispError (..), unwordsList) where
+-- | Common types and functions for the Scheme interpreter
+module Common
+  ( LispVal (..),
+    LispError (..),
+    unwordsList,
+  )
+where
 
 import Text.Parsec (ParseError)
 
+-- | Represents a Scheme value
 data LispVal
-  = Atom String
-  | List [LispVal]
-  | DottedList [LispVal] LispVal
-  | Number Integer
-  | String String
-  | Character Char
-  | Bool Bool
+  = -- | Symbolic atom
+    Atom String
+  | -- | List of values
+    List [LispVal]
+  | -- | Dotted list (proper pair)
+    DottedList [LispVal] LispVal
+  | -- | Integer number
+    Number Integer
+  | -- | String value
+    String String
+  | -- | Character value
+    Character Char
+  | -- | Boolean value
+    Bool Bool
   deriving (Eq)
-
-showVal :: LispVal -> String
-showVal (String contents) = "\"" ++ contents ++ "\""
-showVal (Atom name) = name
-showVal (Number contents) = show contents
-showVal (Bool True) = "#t"
-showVal (Bool False) = "#f"
-showVal (List contents) = "(" ++ unwordsList contents ++ ")"
-showVal (DottedList listHead listTail) = "(" ++ unwordsList listHead ++ " . " ++ showVal listTail ++ ")"
-showVal (Character c) = "#\\" ++ [c]
 
 instance Show LispVal where
   show :: LispVal -> String
-  show = showVal
+  show = \case
+    String contents -> "\"" ++ contents ++ "\""
+    Atom name -> name
+    Number contents -> show contents
+    Bool True -> "#t"
+    Bool False -> "#f"
+    List contents -> "(" ++ unwordsList contents ++ ")"
+    DottedList listHead listTail -> "(" ++ unwordsList listHead ++ " . " ++ show listTail ++ ")"
+    Character c -> "#\\" ++ showCharacter c
+      where
+        showCharacter ' ' = "space"
+        showCharacter '\n' = "newline"
+        showCharacter '\t' = "tab"
+        showCharacter ch = [ch]
 
+-- | Convert a list of LispVals to a space-separated string
 unwordsList :: [LispVal] -> String
-unwordsList = unwords . map showVal
+unwordsList = unwords . map show
 
+-- | Represents errors that can occur during evaluation
 data LispError
-  = NumArgs Integer [LispVal]
-  | TypeMismatch String LispVal
-  | Parser ParseError
-  | BadSpecialForm String LispVal
-  | NotFunction String String
-  | UnboundVar String String
+  = -- | Wrong number of arguments
+    NumArgs Integer [LispVal]
+  | -- | Type mismatch
+    TypeMismatch String LispVal
+  | -- | Parse error
+    Parser ParseError
+  | -- | Invalid special form
+    BadSpecialForm String LispVal
+  | -- | Not a function
+    NotFunction String String
+  | -- | Unbound variable
+    UnboundVar String String
   deriving (Eq)
-
-showError :: LispError -> String
-showError (UnboundVar message varname) =
-  message ++ ": " ++ varname
-showError (BadSpecialForm message form) =
-  message ++ ": " ++ show form
-showError (NotFunction message func) =
-  message ++ ": " ++ show func
-showError (NumArgs expected found) =
-  "Expected " ++ show expected ++ " args; found values " ++ unwordsList found
-showError (TypeMismatch expected found) =
-  "Invalid type: expected " ++ expected ++ ", found " ++ show found
-showError (Parser parseErr) =
-  "Parse error at " ++ show parseErr
 
 instance Show LispError where
   show :: LispError -> String
-  show = showError
+  show = \case
+    UnboundVar message varname -> message ++ ": " ++ varname
+    BadSpecialForm message form -> message ++ ": " ++ show form
+    NotFunction message func -> message ++ ": " ++ func
+    NumArgs expected found -> "Expected " ++ show expected ++ " args; found values " ++ unwordsList found
+    TypeMismatch expected found -> "Invalid type: expected " ++ expected ++ ", found " ++ show found
+    Parser parseErr -> "Parse error at " ++ show parseErr

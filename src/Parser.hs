@@ -7,7 +7,7 @@ import Control.Applicative (asum, (<|>))
 import Control.Monad.Except (Except, liftEither)
 import Data.Bifunctor (first)
 import Numeric (readBin, readHex, readOct)
-import Text.Parsec (anyChar, string, try, unexpected, between)
+import Text.Parsec (anyChar, between, string, try, unexpected)
 import Text.ParserCombinators.Parsec
   ( Parser,
     char,
@@ -35,13 +35,14 @@ parseString :: Parser LispVal
 parseString = String <$> between (char '"') (char '"') (many (escaped <|> noneOf "\""))
   where
     escaped :: Parser Char
-    escaped = char '\\' *> anyChar >>= \c -> case c of
-      '"'  -> return '"'
-      't'  -> return '\t'
-      'n'  -> return '\n'
-      'r'  -> return '\r'
-      '\\' -> return '\\'
-      _    -> unexpected $ "escape sequence \\" ++ [c]
+    escaped =
+      char '\\' *> anyChar >>= \c -> case c of
+        '"' -> return '"'
+        't' -> return '\t'
+        'n' -> return '\n'
+        'r' -> return '\r'
+        '\\' -> return '\\'
+        _ -> unexpected $ "escape sequence \\" ++ [c]
 
 parseAtom :: Parser LispVal
 parseAtom = Atom <$> ((:) <$> (letter <|> symbol) <*> many (letter <|> digit <|> symbol))
@@ -50,15 +51,17 @@ parseDottedList :: Parser LispVal
 parseDottedList = DottedList <$> endBy parseExpr spaces <*> (char '.' *> spaces *> parseExpr)
 
 parseHashPrefixedLiteral :: Parser LispVal
-parseHashPrefixedLiteral = char '#' *> asum
-  [ Bool True  <$ char 't'
-  , Bool False <$ char 'f'
-  , char 'x' *> parseNumber Hex
-  , char 'b' *> parseNumber Bin
-  , char 'o' *> parseNumber Oct
-  , char 'd' *> parseNumber Dec
-  , char '\\' *> parseCharLiteral
-  ]
+parseHashPrefixedLiteral =
+  char '#'
+    *> asum
+      [ Bool True <$ char 't',
+        Bool False <$ char 'f',
+        char 'x' *> parseNumber Hex,
+        char 'b' *> parseNumber Bin,
+        char 'o' *> parseNumber Oct,
+        char 'd' *> parseNumber Dec,
+        char '\\' *> parseCharLiteral
+      ]
 
 parseCharLiteral :: Parser LispVal
 parseCharLiteral = try parseCharName <|> (Character <$> anyChar)
@@ -67,7 +70,7 @@ parseCharLiteral = try parseCharName <|> (Character <$> anyChar)
     parseCharName = do
       name <- asum $ map (string . fst) charMap
       case lookup name charMap of
-        Just c  -> return $ Character c
+        Just c -> return $ Character c
         Nothing -> unexpected "unknown character name"
 
 data NumericalBase = Hex | Dec | Oct | Bin
@@ -91,7 +94,7 @@ parseNumber = \case
       number <- many1 chars
       case reader number of
         [(n, _)] -> return $ Number n
-        _        -> unexpected "invalid number format"
+        _ -> unexpected "invalid number format"
 
 parseList :: Parser LispVal
 parseList = List <$> sepBy parseExpr spaces
@@ -100,14 +103,15 @@ parseQuoted :: Parser LispVal
 parseQuoted = char '\'' *> (List . (Atom "quote" :) . return <$> parseExpr)
 
 parseExpr :: Parser LispVal
-parseExpr = asum
-  [ parseAtom
-  , parseHashPrefixedLiteral
-  , parseString
-  , parseNumber Dec
-  , parseQuoted
-  , between (char '(') (char ')') (try parseList <|> parseDottedList)
-  ]
+parseExpr =
+  asum
+    [ parseAtom,
+      parseHashPrefixedLiteral,
+      parseString,
+      parseNumber Dec,
+      parseQuoted,
+      between (char '(') (char ')') (try parseList <|> parseDottedList)
+    ]
 
 doParse :: String -> Except LispError LispVal
 doParse = liftEither . first Parser . parse parseExpr "lisp"
