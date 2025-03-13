@@ -5,10 +5,12 @@
 module Common
   ( LispVal (..),
     LispError (..),
+    ThrowsError,
     unwordsList,
   )
 where
 
+import Control.Monad.Except (Except)
 import Text.Parsec (ParseError)
 
 -- | Represents a Scheme value
@@ -75,3 +77,5 @@ instance Show LispError where
     NumArgs expected found -> "Expected " ++ show expected ++ " args; found values " ++ unwordsList found
     TypeMismatch expected found -> "Invalid type: expected " ++ expected ++ ", found " ++ show found
     Parser parseErr -> "Parse error at " ++ show parseErr
+
+type ThrowsError = Except LispError

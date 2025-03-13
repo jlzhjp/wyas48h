@@ -2,9 +2,9 @@
 
 module Parser (doParse, LispVal (..)) where
 
-import Common (LispError (Parser), LispVal (..))
+import Common (LispError (Parser), LispVal (..), ThrowsError)
 import Control.Applicative (asum, (<|>))
-import Control.Monad.Except (Except, liftEither)
+import Control.Monad.Except (liftEither)
 import Data.Bifunctor (first)
 import Numeric (readBin, readHex, readOct)
 import Text.Parsec (anyChar, between, string, try, unexpected)
@@ -125,5 +125,5 @@ parseExpr =
       between (char '(') (char ')') (try parseList <|> parseDottedList)
     ]
 
-doParse :: String -> Except LispError LispVal
+doParse :: String -> ThrowsError LispVal
 doParse = liftEither . first Parser . parse parseExpr "lisp"
